@@ -15,10 +15,10 @@ object RouteActor {
   }
 
   private def registry(context: ActorContext[ContestRequest],validatorActor: ActorRef[ContestCommand]): Behavior[ContestRequest] =
-    Behaviors.receiveMessage {
-      case x:ContestJoin =>
-        val cmd = ContestJoinCommand(x.userId,x.contestId,x.replyTo)
-        validatorActor.tell(cmd)
-        Behaviors.same
-    }
+  Behaviors.receiveMessage {
+    case x:ContestJoin =>
+      val cmd = ContestJoinCommand(x.userId,x.contestId,x.replyTo)
+      validatorActor.tell(cmd)
+      Behaviors.same
+  }
 }
