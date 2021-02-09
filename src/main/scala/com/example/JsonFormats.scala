@@ -1,8 +1,8 @@
 package com.example
 
-import com.example.actors.RouteActors.RActionPerformed
 import com.example.actors.{User, Users}
 import com.example.actors.UserRegistry.ActionPerformed
+import com.example.domain.JoinContestResponse
 
 //#json-formats
 import spray.json.DefaultJsonProtocol
@@ -15,6 +15,6 @@ object JsonFormats  {
   implicit val usersJsonFormat = jsonFormat1(Users)
 
   implicit val actionPerformedJsonFormat = jsonFormat1(ActionPerformed)
-  implicit val ractionPerformedJsonFormat = jsonFormat1(RActionPerformed)
+  implicit val contestResponseJsonFormat = jsonFormat1(JoinContestResponse)
 }
 //#json-formats

@@ -7,53 +7,29 @@ import akka.http.scaladsl.server.Route
 import akka.http.scaladsl.server.Directives._
 import akka.util.Timeout
 import com.example.JsonFormats
-import com.example.actors.RouteActors.{RActionPerformed, RCreateUser, RDeleteUser, RGetUser, RGetUserResponse, RGetUsers}
-import com.example.actors.{RouteActors, User, Users}
+import com.example.actors.RouteActor
+import com.example.actors.RouteActor.ContestJoin
+import com.example.domain.JoinContestResponse
 
 import scala.concurrent.Future
 
-class ContextJoinRoutes(routeRegistry: ActorRef[RouteActors.RouteCommand])(implicit val system: ActorSystem[_]) {
+class ContextJoinRoutes(routeActor: ActorRef[RouteActor.ContestRequest])(implicit val system: ActorSystem[_]) {
   import JsonFormats._
   import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
   private implicit val timeout = Timeout.create(system.settings.config.getDuration("my-app.routes.ask-timeout"))
 
-  def getUsers(): Future[Users] =
-    routeRegistry.ask(RGetUsers)
-  def getUser(name: String): Future[RGetUserResponse] =
-    routeRegistry.ask(RGetUser(name, _))
-  def createUser(user: User): Future[RActionPerformed] =
-    routeRegistry.ask(RCreateUser(user, _))
-  def deleteUser(name: String): Future[RActionPerformed] =
-    routeRegistry.ask(RDeleteUser(name, _))
+  def joinContest(user:String,contest:Int): Future[JoinContestResponse] = routeActor.ask(ContestJoin(user,contest,_))
 
   val contextJoinRoutes: Route =
-    pathPrefix("context.join") {
+    pathPrefix("contest-join") {
       concat(
-        pathEnd {
-          concat(
-            get {
-              complete(getUsers())
-            },
-            post {
-              entity(as[User]) { user =>
-                onSuccess(createUser(user)) { performed =>
-                  complete((StatusCodes.Created, performed))
-                }
-              }
-            })
-        },
-        path(Segment) { name =>
+        path(Segment/IntNumber) { (name , contest) =>
           concat(
             get {
               rejectEmptyResponse {
-                onSuccess(getUser(name)) { response =>
-                  complete(response.maybeUser)
+                onSuccess(joinContest(name,contest)) { response =>
+                  complete(response)
                 }
-              }
-            },
-            delete {
-              onSuccess(deleteUser(name)) { performed =>
-                complete((StatusCodes.OK, performed))
               }
             })
         })
@@ -61,7 +37,7 @@ class ContextJoinRoutes(routeRegistry: ActorRef[RouteActors.RouteCommand])(impli
 }
 
 object ContextJoinRoutes {
-  def route(routeActor: ActorRef[RouteActors.RouteCommand])(implicit system: ActorSystem[_]):Route = {
+  def route(routeActor: ActorRef[RouteActor.ContestRequest])(implicit system: ActorSystem[_]):Route = {
     new ContextJoinRoutes(routeActor)(system).contextJoinRoutes
   }
 }

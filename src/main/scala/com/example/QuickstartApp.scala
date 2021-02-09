@@ -4,7 +4,7 @@ import akka.actor.typed.ActorSystem
 import akka.actor.typed.scaladsl.Behaviors
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.server.Route
-import com.example.actors.{RouteActors, UserRegistry}
+import com.example.actors.{RouteActor, UserRegistry}
 import com.example.routes.{TopLevelRoute, UserRoutes}
 
 import scala.io.StdIn
@@ -33,7 +33,7 @@ object QuickstartApp {
     //#server-bootstrapping
     val rootBehavior = Behaviors.setup[Nothing] { context =>
       val userRegistryActor = context.spawn(UserRegistry(), "UserRegistryActor")
-      val routeRegistryActor = context.spawn(RouteActors(), "RouteActor")
+      val routeRegistryActor = context.spawn(RouteActor(), "RouteActor")
       context.watch(userRegistryActor)
 
       val routes = new TopLevelRoute(userRegistryActor,routeRegistryActor)(context.system).route
