@@ -3,9 +3,13 @@ package com.example.ratelimit
 import scala.concurrent.Future
 import scala.concurrent.duration.{Deadline, FiniteDuration}
 
-class JoinRateLimiter(requests: Int, period: FiniteDuration) {
+trait RateLimiter {
+  def call[T](block: => Future[T]): Future[T]
+}
 
-  import com.example.ratelimit.JoinRateLimiter.RateLimitExceeded
+class StrikeRateLimiter(requests: Int, period: FiniteDuration) extends RateLimiter {
+
+  import com.example.ratelimit.StrikeRateLimiter.RateLimitExceeded
 
   private val startTimes = {
     val onePeriodAgo = Deadline.now - period
@@ -28,6 +32,6 @@ class JoinRateLimiter(requests: Int, period: FiniteDuration) {
   }
 }
 
-object JoinRateLimiter {
+object StrikeRateLimiter {
   case object RateLimitExceeded extends RuntimeException
 }
