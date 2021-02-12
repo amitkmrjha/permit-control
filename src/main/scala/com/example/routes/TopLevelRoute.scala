@@ -9,17 +9,13 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.unmarshalling.FromRequestUnmarshaller
 import akka.pattern.ask
 import akka.util.Timeout
-import com.example.actors.{RouteActor, SlowActor, UserRegistry}
+import com.example.actors.{RouteActor}
 import com.example.domain.ContestCommand
 
-class TopLevelRoute(userRegistry: ActorRef[UserRegistry.UserCommand],
-                    routeActors: ActorRef[RouteActor.ContestRequest],
-                    slowActor: ActorRef[SlowActor.SlowCommand])
+class TopLevelRoute(routeActors: ActorRef[RouteActor.ContestRequest])
                    (implicit system: ActorSystem[_]) {
   lazy val  route: Route =
     concat(
-      UserRoutes.route(userRegistry),
-      ContextJoinRoutes.route(routeActors),
-      SlowRoute.route(slowActor)
+      ContextJoinRoutes.route(routeActors)
     )
 }

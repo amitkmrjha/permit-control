@@ -7,9 +7,8 @@ import akka.http.scaladsl.model.StatusCodes
 import akka.http.scaladsl.server.Directives.{complete, handleRejections, onSuccess, path}
 import akka.http.scaladsl.server.{RejectionHandler, Route}
 import akka.util.Timeout
-import com.example.actors.{RouteActor, SlowActor, UserRegistry}
-import com.example.ratelimit.RateLimit.{Limiter, PathBusyRejection}
-import com.example.routes.{TopLevelRoute, UserRoutes}
+import com.example.actors.RouteActor
+import com.example.routes.TopLevelRoute
 
 import scala.concurrent.duration.DurationInt
 import scala.io.StdIn
@@ -37,12 +36,10 @@ object QuickstartApp {
   def main(args: Array[String]): Unit = {
     //#server-bootstrapping
     val rootBehavior = Behaviors.setup[Nothing] { context =>
-      val userRegistryActor = context.spawn(UserRegistry(), "UserRegistryActor")
       val routeActor = context.spawn(RouteActor(), "RouteActor")
-      val slowActor = context.spawn(SlowActor(), "SlowActor")
-      context.watch(userRegistryActor)
+      context.watch(routeActor)
 
-      val routes = new TopLevelRoute(userRegistryActor,routeActor,slowActor)(context.system).route
+      val routes = new TopLevelRoute(routeActor)(context.system).route
       startHttpServer(routes)(context.system)
 
       Behaviors.empty
