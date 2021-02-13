@@ -3,7 +3,7 @@ package com.example.ratelimit
 import akka.actor.typed.ActorSystem
 import akka.pattern.{CircuitBreaker, CircuitBreakerOpenException}
 import com.example.ratelimit.ContestCircuitBreaker.BreakerLimiter
-import com.example.ratelimit.StrikeRateLimiter.RateLimitExceeded
+import com.example.ratelimit.JoinRateLimiter.RateLimitExceeded
 import akka.actor.typed.scaladsl.adapter._
 
 import scala.concurrent.duration._
@@ -23,10 +23,12 @@ class StrikeRateCircuitBreaker(system: ActorSystem[_], breaker:CircuitBreaker, l
 private val breakerCache: mutable.Map[Int, BreakerLimiter] = new ConcurrentHashMap[Int,BreakerLimiter]().asScala
 
   override def invoke[T](block: => Future[T])(implicit contestId:Int): Future[T] = {
+
     breakerCache.get(contestId) match {
-      case  Some(x) => invoke(x.breaker,x.limiter,block)
+      case  Some(x) =>
+        invoke(x.breaker,x.limiter,block)
       case None =>
-        breakerCache + (contestId -> BreakerLimiter(breaker,limiter))
+        breakerCache.put(contestId , BreakerLimiter(breaker,limiter))
         invoke(breaker,limiter,block)
     }
   }
