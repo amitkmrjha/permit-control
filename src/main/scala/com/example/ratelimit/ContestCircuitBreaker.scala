@@ -16,7 +16,7 @@ trait ContestCircuitBreaker  {
   def invoke[T](block: => Future[T])(implicit contestId:Int): Future[T]
 }
 
-class StrikeRateCircuitBreaker(system: ActorSystem[_], breaker:CircuitBreaker, limiter: RateLimiter) extends ContestCircuitBreaker {
+class StrikeRateCircuitBreaker(system: ActorSystem[_]) extends ContestCircuitBreaker {
 
   implicit val ec = system.executionContext
 
@@ -28,6 +28,8 @@ private val breakerCache: mutable.Map[Int, BreakerLimiter] = new ConcurrentHashM
       case  Some(x) =>
         invoke(x.breaker,x.limiter,block)
       case None =>
+        val breaker:CircuitBreaker = CircuitBreaker(system.toClassic.scheduler, maxFailures = 5, callTimeout = 5.seconds, resetTimeout = 10.seconds)
+        val limiter:RateLimiter = new JoinRateLimiter(requests = 10, period = 10.seconds)
         breakerCache.put(contestId , BreakerLimiter(breaker,limiter))
         invoke(breaker,limiter,block)
     }
