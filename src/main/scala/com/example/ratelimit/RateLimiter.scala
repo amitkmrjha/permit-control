@@ -1,15 +1,21 @@
 package com.example.ratelimit
 
+import com.example.ratelimit.RateLimiter.RateLimitExceeded
+import com.typesafe.scalalogging.Logger
+
 import scala.concurrent.Future
 import scala.concurrent.duration.{Deadline, FiniteDuration}
 
 trait RateLimiter {
   def call[T](block: => Future[T]): Future[T]
 }
+object RateLimiter {
+  case object RateLimitExceeded extends RuntimeException
+}
 
 class JoinRateLimiter(requests: Int, period: FiniteDuration) extends RateLimiter {
 
-  import com.example.ratelimit.JoinRateLimiter.RateLimitExceeded
+  val logger = Logger[JoinRateLimiter]
 
   private val startTimes: Array[Deadline] = {
     val onePeriodAgo = Deadline.now - period
@@ -33,10 +39,11 @@ class JoinRateLimiter(requests: Int, period: FiniteDuration) extends RateLimiter
 }
 
 object JoinRateLimiter {
-  case object RateLimitExceeded extends RuntimeException
 }
-/*
-class StrikeRateLimiter(rate: Double,period: FiniteDuration) extends RateLimiter {
+
+class ReplicatedJoinRateLimiter(requests: Int, period: FiniteDuration) extends RateLimiter {
+
+  val logger = Logger[JoinRateLimiter]
 
   private val startTimes: Array[Deadline] = {
     val onePeriodAgo = Deadline.now - period
@@ -59,6 +66,5 @@ class StrikeRateLimiter(rate: Double,period: FiniteDuration) extends RateLimiter
   }
 }
 
-object StrikeRateLimiter {
-  case object HigherDropRate extends RuntimeException
-}*/
+object ReplicatedJoinRateLimiter {
+}
