@@ -6,7 +6,7 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.util.Timeout
 import com.example.ddata.ContestJoinRateCache
-import com.example.ddata.ContestJoinRateCache.GetCache
+import com.example.ddata.ContestJoinRateCache.{AddToCache, GetCache}
 import com.example.ratelimit.RateLimiter.RateLimitExceeded
 import com.typesafe.scalalogging.Logger
 
@@ -34,6 +34,14 @@ class ContestFunnel()(implicit system: ActorSystem[_]) extends RequestFunnel {
   override def invoke[T](block: => Future[T])(implicit contestId:Int): Future[T] = {
     funnelLocalMap.get(contestId) match {
       case  Some(x) =>
+        logger.info(s"current rate limiter for Contest ${contestId} is ${x.currentRate}")
+        if(x.isOverDue()){
+          updateRateLimitCache(contestId,x.feedBackRate)
+          getRateLimiter(contestId).flatMap { rateLimiter =>
+            funnelLocalMap.put(contestId,rateLimiter)
+            invoke(rateLimiter,block)
+          }
+        }
         invoke(x,block)
       case None =>
         getRateLimiter(contestId).flatMap { rateLimiter =>
@@ -42,9 +50,17 @@ class ContestFunnel()(implicit system: ActorSystem[_]) extends RequestFunnel {
         }
     }
   }
+
   private def getRateLimiter(contestId:Int):Future[RateLimiter] = {
     strikeRateCacheActor.ask(ref => GetCache(contestId,ref))
-      .map (x => new JoinRateLimiter(x.value.getOrElse(10), period = 10.seconds))
+      .map { x =>
+        logger.info(s"rate retrieved fom replicated cache ${x}")
+        new JoinRateLimiter(x.value.getOrElse(10), period = 10.seconds)
+      }
+  }
+
+  private def updateRateLimitCache(contestId:Int,rate:Int) = {
+    strikeRateCacheActor !  AddToCache(contestId, rate)
   }
 
   private def invoke[T](limiter: RateLimiter,block: => Future[T])(implicit contestId:Int): Future[T] = {
