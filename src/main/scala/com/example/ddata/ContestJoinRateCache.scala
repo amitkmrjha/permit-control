@@ -8,6 +8,9 @@ import akka.cluster.ddata.typed.scaladsl.DistributedData
 import akka.cluster.ddata.typed.scaladsl.Replicator.{Get, Update}
 
 object ContestJoinRateCache {
+
+  type RateLimitRef = ActorRef[ContestJoinRateCache.JoinRateCommand]
+
   sealed trait JoinRateCommand
   final case class AddToCache(key: Int, value: Int) extends JoinRateCommand
   final case class GetCache(key: Int, replyTo: ActorRef[CachedValue]) extends JoinRateCommand

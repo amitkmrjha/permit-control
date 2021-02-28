@@ -2,15 +2,16 @@ package com.example.actors
 
 import akka.actor.typed.{ActorRef, Behavior}
 import akka.actor.typed.scaladsl.{ActorContext, Behaviors}
-import com.example.domain.{ContestCommand, ContestJoinCommand, JoinContestResponse}
+import com.example.ddata.ContestJoinRateCache.RateLimitRef
+import com.example.domain.{ContestCommand, ContestJoinCommand, ContestResponse}
 
 object RouteActor {
 
   sealed trait ContestRequest
-  final case class ContestJoin(userId:String, contestId: Int,replyTo: ActorRef[JoinContestResponse]) extends ContestRequest
+  final case class ContestJoin(userId:String, contestId: Int,replyTo: ActorRef[ContestResponse]) extends ContestRequest
 
-  def apply(): Behavior[ContestRequest] = Behaviors.setup{context =>
-    val actorRef = context.spawn(ContestValidationActor(), "Validator-actor")
+  def apply(rateLimitRef:RateLimitRef): Behavior[ContestRequest] = Behaviors.setup{context =>
+    val actorRef = context.spawn(ContestValidationActor(rateLimitRef), "Validator-actor")
     registry(context,actorRef)
   }
 

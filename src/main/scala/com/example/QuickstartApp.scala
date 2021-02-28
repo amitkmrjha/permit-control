@@ -8,6 +8,7 @@ import akka.http.scaladsl.server.Directives.{complete, handleRejections, onSucce
 import akka.http.scaladsl.server.{RejectionHandler, Route}
 import akka.util.Timeout
 import com.example.actors.RouteActor
+import com.example.ddata.{ContestJoinRateCache}
 import com.example.routes.TopLevelRoute
 
 import scala.concurrent.duration.DurationInt
@@ -36,7 +37,8 @@ object QuickstartApp {
   def main(args: Array[String]): Unit = {
     //#server-bootstrapping
     val rootBehavior = Behaviors.setup[Nothing] { context =>
-      val routeActor = context.spawn(RouteActor(), "RouteActor")
+      val  rateLimitCacheActor = context.spawnAnonymous(ContestJoinRateCache())
+      val routeActor = context.spawn(RouteActor(rateLimitCacheActor), "RouteActor")
       context.watch(routeActor)
 
       val routes = new TopLevelRoute(routeActor)(context.system).route
