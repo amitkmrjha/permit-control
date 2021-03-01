@@ -14,9 +14,12 @@ import scala.concurrent.Future
 object ContestValidationActor {
 
   def apply(rateLimitRef:RateLimitRef): Behavior[ContestCommand] = Behaviors.setup{context =>
+
     val timeout = Timeout.create(context.system.settings.config.getDuration("my-app.routes.ask-timeout"))
     val requestFunnel : RequestFunnel =  new ContestFunnel(rateLimitRef)(context.executionContext,timeout,context.system.scheduler)
+
     validate(context,requestFunnel)
+
   }
   private def validate(context: ActorContext[ContestCommand],requestFunnel:RequestFunnel): Behavior[ContestCommand] =
     Behaviors.receiveMessage {
@@ -30,6 +33,8 @@ object ContestValidationActor {
       case res:WrappedResponse => res.replyTo ! res.result
         Behaviors.same
     }
+
+
 
   private def mockReply(cmd:ContestJoinCommand):Future[JoinContestResponse] = {
     println(s"ContestValidationActor received  ContestJoinCommand for ${cmd.userId},${cmd.contestId}")

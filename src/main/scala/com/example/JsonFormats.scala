@@ -1,4 +1,5 @@
 package com.example
+import com.example.domain.BackPressure.BackPressureRate
 import com.example.domain.{ContestResponse, JoinContestResponse}
 import spray.json._
 
@@ -8,6 +9,8 @@ import spray.json.DefaultJsonProtocol
 object JsonFormats  {
   // import the default encoders for primitive types (Int, String, Lists etc)
   import DefaultJsonProtocol._
+  implicit val backPressureRateJsonFormat = jsonFormat1(BackPressureRate)
+
   implicit val contestJoinResponseJsonFormat = jsonFormat1(JoinContestResponse)
 
   implicit val contestResponseFormat = new RootJsonFormat[ContestResponse] {

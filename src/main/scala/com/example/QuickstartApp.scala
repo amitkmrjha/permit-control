@@ -41,7 +41,7 @@ object QuickstartApp {
       val routeActor = context.spawn(RouteActor(rateLimitCacheActor), "RouteActor")
       context.watch(routeActor)
 
-      val routes = new TopLevelRoute(routeActor)(context.system).route
+      val routes = new TopLevelRoute(routeActor,rateLimitCacheActor)(context.system).route
       startHttpServer(routes)(context.system)
 
       Behaviors.empty
