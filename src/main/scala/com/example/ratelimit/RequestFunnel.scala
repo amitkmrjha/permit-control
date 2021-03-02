@@ -6,6 +6,7 @@ import akka.actor.typed.scaladsl.adapter._
 import akka.actor.typed.scaladsl.AskPattern._
 import akka.util.Timeout
 import com.example.ddata.ContestJoinRateCache.{AddToCache, GetCache, RateLimitRef}
+import com.example.domain.BackPressure
 import com.example.ratelimit.RateLimiter.RateLimitExceeded
 import com.example.ratelimit.RequestFunnel.ContestId
 import com.typesafe.scalalogging.Logger
@@ -20,9 +21,12 @@ import scala.util.Success
 
 trait RequestFunnel  {
   def funnel[T](block: => Future[T])(implicit contestId:ContestId): Future[T]
+  def updateFunnel(backPressure:BackPressure)
+  def removeFunnel(contestId: ContestId)
+
 }
 
-class ContestFunnel(rateLimitRef:RateLimitRef)(implicit ec:ExecutionContext,timeout: Timeout,scheduler: Scheduler)extends RequestFunnel {
+class ContestFunnel()(implicit ec:ExecutionContext,timeout: Timeout,scheduler: Scheduler)extends RequestFunnel {
 
   val logger = Logger[ContestFunnel]
 
@@ -31,33 +35,18 @@ class ContestFunnel(rateLimitRef:RateLimitRef)(implicit ec:ExecutionContext,time
   override def funnel[T](block: => Future[T])(implicit contestId:ContestId): Future[T] = {
     funnelLocalMap.get(contestId.id) match {
       case  Some(x) =>
-        logger.info(s"current rate limiter for Contest ${contestId} is ${x.currentRate}")
-        if(x.isOverDue()){
-          updateRateLimitCache(contestId.id,x.feedBackRate)
-          getRateLimiter(contestId.id).flatMap { rateLimiter =>
-            funnelLocalMap.put(contestId.id,rateLimiter)
-            invoke(rateLimiter,block)
-          }
-        }
         invoke(x,block)
       case None =>
-        getRateLimiter(contestId.id).flatMap { rateLimiter =>
-            funnelLocalMap.put(contestId.id,rateLimiter)
-            invoke(rateLimiter,block)
-        }
+        block
     }
   }
 
-  private def getRateLimiter(contestId:Int):Future[RateLimiter] = {
-    rateLimitRef.ask(ref => GetCache(contestId,ref))
-      .map { x =>
-        logger.info(s"rate retrieved fom replicated cache ${x}")
-        new JoinRateLimiter(x.value.getOrElse(10), period = 10.seconds)
-      }
+ override def updateFunnel(backPressure:BackPressure) = {
+   val newRateLimiter = new JoinRateLimiter(backPressure.rate, period = backPressure.duration.getOrElse(10).seconds)
+   funnelLocalMap.put(backPressure.contestId,newRateLimiter)
   }
-
-  private def updateRateLimitCache(contestId:Int,rate:Int) = {
-    rateLimitRef !  AddToCache(contestId, rate)
+  override def removeFunnel(contestId: ContestId) = {
+    funnelLocalMap.remove(contestId.id)
   }
 
   private def invoke[T](limiter: RateLimiter,block: => Future[T])(implicit contestId:ContestId): Future[T] = {

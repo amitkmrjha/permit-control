@@ -9,9 +9,6 @@ import scala.util.Random
 
 trait RateLimiter {
   def call[T](block: => Future[T]): Future[T]
-  def isOverDue():Boolean
-  def feedBackRate:Int
-  def currentRate:Int
 }
 object RateLimiter {
   case object RateLimitExceeded extends RuntimeException
@@ -20,7 +17,6 @@ object RateLimiter {
 class JoinRateLimiter(requests: Int, period: FiniteDuration) extends RateLimiter {
 
   val logger = Logger[JoinRateLimiter]
-  private var overDue = false
 
   private val startTimes: Array[Deadline] = {
     val onePeriodAgo = Deadline.now - period
@@ -32,17 +28,12 @@ class JoinRateLimiter(requests: Int, period: FiniteDuration) extends RateLimiter
     startTimes(position) = time
     position += 1
     if (position == requests) {
-      overDue = true
       position = 0
     }
   }
 
-  override def isOverDue() = overDue
-
-  override def feedBackRate: Int = Random.between(1, 10)
-  override def currentRate: Int = requests
-
   override def call[T](block: => Future[T]): Future[T] = {
+    logger.info(s"current back pressure rate is ${requests}")
     val now = Deadline.now
     if ((now - lastTime) < period) Future.failed(RateLimitExceeded)
     else {
@@ -50,7 +41,6 @@ class JoinRateLimiter(requests: Int, period: FiniteDuration) extends RateLimiter
       block
     }
   }
-
 }
 
 object JoinRateLimiter {

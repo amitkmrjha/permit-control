@@ -8,8 +8,8 @@ import akka.http.scaladsl.server.Directives._
 import akka.http.scaladsl.server.Route
 import akka.util.Timeout
 import com.example.JsonFormats
-import com.example.ddata.ContestJoinRateCache.{AddToCache, CachedValue, GetCache, RateLimitRef}
-import com.example.domain.BackPressure.BackPressureRate
+import com.example.ddata.ContestJoinRateCache.{AddToCache, CachedValue, GetCache, RateLimitRef, RemoveCache}
+import com.example.domain.{BackPressure, RateLimitBackPressure, UpdateBackPressureRequest}
 import com.example.ratelimit.JoinRateLimiter
 import com.example.ratelimit.RequestFunnel.ContestId
 
@@ -18,18 +18,25 @@ import scala.concurrent.{ExecutionContext, Future}
 class BackPressureRoutes(limiterRef: RateLimitRef) (implicit val system: ActorSystem[_]) {
   import JsonFormats._
   import akka.http.scaladsl.marshallers.sprayjson.SprayJsonSupport._
-  import spray.json.DefaultJsonProtocol._
   implicit val ec:ExecutionContext = system.executionContext
   private implicit val timeout = Timeout.create(system.settings.config.getDuration("my-app.routes.ask-timeout"))
 
-  def getRate(contestId:ContestId): Future[String] = {
+  def getRate(contestId:ContestId): Future[BackPressure] = {
     limiterRef.ask(ref => GetCache(contestId.id,ref)).map {
-      case v:CachedValue => v.value.getOrElse(0)
-    }.map(p => p.toString)
+      case v:CachedValue => RateLimitBackPressure(v.key,v.value.getOrElse(0))
+    }
   }
 
-  def updateRate(contestId:ContestId,rate:Int): Future[String] = {
-    Future.successful(limiterRef  !  AddToCache(contestId.id, rate)).map(_ => s"Done")
+  def updateRate(backPressure:BackPressure): Future[BackPressure] = {
+    Future.successful(limiterRef  !  AddToCache(backPressure.contestId, backPressure.rate))
+      .map(_ =>
+        RateLimitBackPressure(backPressure.contestId, backPressure.rate)
+      )
+  }
+
+  def removeRate(key:Int): Future[String] = {
+    Future.successful(limiterRef  !  RemoveCache(key))
+      .map(_ => s"Removed key ${key}"  )
   }
 
   val backPressureRoutes: Route =
@@ -45,10 +52,13 @@ class BackPressureRoutes(limiterRef: RateLimitRef) (implicit val system: ActorSy
               }
             },
             post {
-              entity(as[BackPressureRate]) { rate =>
-                complete(updateRate(ContestId(contestId),rate.rate))
+              entity(as[UpdateBackPressureRequest]) { p =>
+                complete(updateRate(RateLimitBackPressure(contestId,p.rate,p.duration)))
               }
-            })
+            },
+          delete {
+              complete(removeRate(contestId))
+          })
         })
     }
 }
